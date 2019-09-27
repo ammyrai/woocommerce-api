@@ -1,6 +1,14 @@
 <?php
 error_reporting(0);
 // AUTHENTICATION
+	add_action( 'rest_api_init', 'woo_api_register_route_auth' );
+	function woo_api_register_route_auth() {
+	    register_rest_route( 'v1/woo-api/','auth', array(
+	            'methods' => 'GET',
+	            'callback' => 'create_item_permissions_check',
+	        )
+	    );
+	}
 	function create_item_permissions_check(WP_REST_Request $request){
 		if (get_option('api-checkbox-auth') == 1) {
 			$header = $request->get_params();
@@ -9,7 +17,7 @@ error_reporting(0);
 			$consumer_secret = $header['consumer_secret'];
 
 			$auth = $wpdb->get_results( $wpdb->prepare("
-			    SELECT consumer_key, consumer_secret, permissions
+			    SELECT permissions
 			    FROM {$wpdb->prefix}woocommerce_api_keys
 			    WHERE consumer_key = '$consumer_key' AND consumer_secret = '$consumer_secret'
 			", ''), ARRAY_A);
@@ -18,14 +26,19 @@ error_reporting(0);
 				
 				$permission = $auth[0]['permissions'];
 				$route = $request->get_route();
+				if ($route == '/v1/woo-api/auth') {
+					return $auth;
+				}
 				$perm_Read = array(
 					'/v1/woo-api/get-products',
 					'/v1/woo-api/get-category',
 					'/v1/woo-api/get-customer',
+					'/v1/woo-api/auth',
 				);
 				$perm_Write = array(
 					'/v1/woo-api/create-product',
 					'/v1/woo-api/create-customer',
+					'/v1/woo-api/auth',
 				);
 				$perm_Read_Write = array(
 					'/v1/woo-api/get-products',
@@ -33,6 +46,7 @@ error_reporting(0);
 					'/v1/woo-api/get-category',
 					'/v1/woo-api/get-customer',
 					'/v1/woo-api/create-customer',
+					'/v1/woo-api/auth',
 				);
 				if ($permission == 'read_write') {
 					if(in_array($route,$perm_Read_Write)){
@@ -105,14 +119,14 @@ error_reporting(0);
 			if (empty($_REQUEST['page'])) {
 				$page = 0;
 			}else{
-				$page = $_REQUEST['page']*$per_page;
+				$page = $_REQUEST['page'];
 			}
 			
 			$all_ids = get_posts( array(
 		        'post_type' => 'product',
 		        'post_status' => 'publish',
 		        'posts_per_page' => $per_page,
-		        'offset'	=>	$page,
+		        'paged'	=>	$page,
 		        'fields' => 'ids',
 			) );
 			$responce = array();
@@ -164,8 +178,7 @@ error_reporting(0);
 		$check_exists = $wpdb->get_var( $wpdb->prepare( "SELECT post_id FROM $wpdb->postmeta WHERE meta_key='_sku' AND meta_value='%s' LIMIT 1", $sku ) );
 
 		if (!empty($check_exists)) {
-			return new WP_Error( 'error', 'product already exists', array('status' => 404) );
-			// return rest_ensure_response( array('product_id' => $check_exists, 'status' => 'Product already exists') );
+			return new WP_Error( 'error', 'product already exists', array('resource_id'=>$check_exists,'status' => 404) );
 		}else{
 			$post = array(
 		        'post_title' => $name, //$item->name,
@@ -182,7 +195,7 @@ error_reporting(0);
 			    add_post_meta($post_id, '_thumbnail_id', $attach_id);
 			}
 
-			wp_set_object_terms( $post_id, 'Races', 'product_cat' );
+			// wp_set_object_terms( $post_id, '', 'product_cat' );
 			wp_set_object_terms($post_id, $type, 'product_type');
 
 			update_post_meta( $post_id, '_visibility', 'visible' );
@@ -210,7 +223,6 @@ error_reporting(0);
 
 			$response = new WP_REST_Response(array('product_id' => $post_id, 'status' => 'Product create successful'));
 			$response->set_status(200);
-			// return rest_ensure_response( array('product_id' => $post_id, 'status' => 'Product create successful') );
 			return $response;
 		}
 	}
@@ -286,7 +298,14 @@ error_reporting(0);
 				return new WP_Error( 'error', 'wrong customer id', array('status' => 404) );
 			}
 		}else{
-			$customers = get_users( array('role'=>'customer') );
+			$per_page = $_REQUEST['per_page'];
+			$page = $_REQUEST['page'];
+
+			$customers = get_users( array(
+				'role'	=>	'customer',
+				'paged'	=>	$page,
+				'number'=>	$per_page,
+			) );
 			$userArray = array();
 			foreach ($customers as $customer ) {
 				$users_info = get_user_meta ( $customer->ID);
@@ -331,13 +350,17 @@ error_reporting(0);
 
 		$user_id = wp_create_user( $username, $password, $email );
 		if ( is_wp_error( $user_id ) ){
-			return new WP_Error( 'error', $user_id->get_error_message(), array('status' => 404) );
-   			// return rest_ensure_response(array('status'=>$user_id->get_error_message()) );
+			$exists = email_exists( $email );
+			$user_exists = username_exists( $username );
+			if ( $exists ) {
+				return new WP_Error( 'error',$user_id->get_error_message(), array('resource_id'=>$exists,'status' => 404) );
+			} elseif ($user_exists) {
+				return new WP_Error( 'error',$user_id->get_error_message(), array('resource_id'=>$user_exists,'status' => 404) );
+			}
 		}else{
 			$user_id_role = new WP_User($user_id);
 	        $user_id_role->set_role('customer');
 	        update_user_meta( $user_id, "first_name", $name );
-	        // return rest_ensure_response( array('customer_id' => $user_id, 'status' => 'Customer create successful') );
 	        $response = new WP_REST_Response( array('customer_id' => $user_id, 'status' => 'Customer create successful') );
 			$response->set_status(200);
 		    return $response;

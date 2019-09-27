@@ -41,7 +41,7 @@ function woo_api_setting()
         </form>
         <table border="1" cellpadding="10" cellspacing="4">
 			<tr>
-				<th colspan="2"><h3>If auth is enable then add consumer key and consumer secret after API url like<br>{site url}//v1/woo-api/get-products?consumer_key=xxxxxx&consumer_secret=xxxxxx</h3></th>
+				<th colspan="2"><h3>If auth is enable then add consumer key and consumer secret after API url like<br>{site url}/v1/woo-api/get-products?consumer_key=xxxxxx&consumer_secret=xxxxxx</h3></th>
 			</tr>
 			<tr>
 				<td>GET ALL PRODUCTS</td>
@@ -65,7 +65,8 @@ function woo_api_setting()
 			</tr>
 			<tr>
 				<td>GET CUSTOMER BY ID</td>
-				<td>{site url}/v1/woo-api/get-customer?id=xxx</td>
+				<td>{site url}/v1/woo-api/get-customer?id=xxx
+					<br>If you want set limit by page use parameters per_page & page</td>
 			</tr>
 			<tr>
 				<td>CREATE PRODUCT</td>

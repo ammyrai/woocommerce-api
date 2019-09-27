@@ -69,6 +69,7 @@ function woo_api_plugin_install() {
         if (!file_exists(plugin_dir_path(__FILE__).'logs')) {
             mkdir(plugin_dir_path(__FILE__).'logs', 0777, true);
         }
+        wp_redirect( admin_url( 'admin.php?page=woo_api' ) );
 	}
 }
 
