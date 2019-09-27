@@ -69,12 +69,19 @@ function woo_api_plugin_install() {
         if (!file_exists(plugin_dir_path(__FILE__).'logs')) {
             mkdir(plugin_dir_path(__FILE__).'logs', 0777, true);
         }
-        wp_redirect( admin_url( 'admin.php?page=woo_api' ) );
 	}
 }
 
 // PLUGIN ACTIVATION HOOK
 register_activation_hook( __FILE__, 'woo_api_plugin_install' );
+
+function woo_api_activated_redirect( $plugin ) {
+    if( $plugin == plugin_basename( __FILE__ ) ) {
+        exit( wp_redirect( admin_url( 'admin.php?page=woo_api' ) ) );
+    }
+}
+add_action( 'activated_plugin', 'woo_api_activated_redirect' );
+
 // CREATING MAIN MENUS
 function woo_api_options_page() {
     add_menu_page(
